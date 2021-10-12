@@ -50,6 +50,14 @@ https://cqd.teams.microsoft.com/ - Microsoft Call Quality Dashboard
 https://mystaff.microsoft.com - Management portal for first line workers
 https://protection.office.com/reportv2?dltarget=report&dlstorage=url&dljson=%7B%22reportId%22:%22TPSMessageOverrideReportATP%22,%22startDate%22:%222021-02-14T00:00:00.000Z%22,%22endDate%22:%222021-02-20T23:59:59.000Z%22,%22target%22:%22report%22,%22storage%22:%22Url%22,%22source%22:%22%2Freportv2%22%7D - Threat protection status (Message Override)
 https://security.microsoft.com/threatanalytics3 - Threat Analytics
+https://lighthouse.microsoft.com/ - Microsoft 365 lighthouse
+https://admin.microsoft.com/Adminportal/Home?source=applauncher#/Settings/Services/:/Settings/L1/DataLocationList - Data location
+https://admin.microsoft.com/Adminportal/Home?#/modernonboarding/microsoftedgedeploymentadvisor - Microsoft Edge advisor
+https://windows365.microsoft.com - Windows 365
+https://cloudpc.microsoft.com - Windows 365
+https://compliance.microsoft.com/m365appprotection - App governance
+https://windows365.microsoft.com/ - Windows 365
+https://cloudpc.microsoft.com - Windows 365
 
 ## Security 
 
@@ -57,7 +65,8 @@ https://portal.msrc.microsoft.com/en-us/engage/cars - Submit Abuse report. This 
 https://servicetrust.microsoft.com/ - Service trust portal. Review the available independent audit reports for Microsoft's Cloud services, which provide information about compliance with data protection standards and regulatory requirements, such as International Organization for Standardization (ISO), Service Organization Controls (SOC), National Institute of Standards and Technology (NIST), Federal Risk and Authorization Management Program (FedRAMP), and the General Data Protection Regulation (GDPR)
 https://www.microsoft.com/en-us/trustcenter - Trust center
 https://protection.office.com - Office 365 Security portal
-https://securescore.microsoft.com - Microsoft Secure Score
+https://admin.microsoft.com/AdminPortal/Home?#/modernonboarding/mfasetupguide - Configure and enforce multifactor authentication
+https://security.microsoft.com/securescore - Microsoft Secure Score
 https://portal.cloudappsecurity.com - Office 365 Cloud App security
 https://security.microsoft.com/ - Microsoft 365 Security Center
 https://protection.office.com/gdprdashboard - GDPR Dashbaord
@@ -79,6 +88,13 @@ https://protection.office.com/configurationAnalyzer - Configuration Analyzer
 https://security.microsoft.com/restrictedusers - Restricted users portal
 https://o365atp.com/ - Office 365 ATP Safe Links Decoder
 https://mha.azurewebsites.net/ - Message Header Analyzer
+https://security.microsoft.com/antimalwarev2 - Malware filter
+https://security.microsoft.com/antispam - Connection Filter, Spam Filter, Outbound Spam Filter
+https://security.microsoft.com/quarantine - Quarantine
+https://security.microsoft.com/dkimv2 - DKIM
+https://security.microsoft.com/safeattachmentv2 - Safe Attachments
+https://security.microsoft.com/safelinksv2 - Safe Links
+https://security.microsoft.com/restrictedusers - Action Center
 
 ## Azure
 
@@ -90,6 +106,12 @@ https://account.activedirectory.windowsazure.com/ - User Azure AD portal
 https://portal.atp.azure.com - Azure ATP
 https://status.azure.com - Azure Status
 https://www.qnamaker.ai/ - Q and A Maker
+https://portal.atp.azure.com/ - Microsoft Defender for Identity
+
+## Microsoft Management Agent
+
+https://go.microsoft.com/fwlink/?LinkId=828603 - Windows 64-bit agent
+https://go.microsoft.com/fwlink/?LinkId=828604 - Windows 32-bit agent
 
 ## Partner
 
@@ -100,6 +122,8 @@ https://partner.microsoft.com/en-au/community/australia-partner-hub - Microsoft 
 https://developer.microsoft.com/en-us/graph/graph-explorer - Microsoft Graph explorer
 https://www.whatismytenantid.com/ - What is my Microsoft Azure and Office 365 tenant ID?
 https://o365.rocks/ - Tenant Availability Check
+https://adoption.microsoft.com/extensibility-look-book - Microsoft 365 Extensibility look book gallery
+https://lookbook.microsoft.com/ - SharePoint look book
 
 ## Twitter
 
@@ -149,7 +173,7 @@ https://twitter.com/SharePoint - Microsoft SharePoint
 https://twitter.com/AndroidAtMsft - Andoid at Microsoft
 https://twitter.com/windowsATP - Microsoft Defender ATP
 https://twitter.com/MicrosoftGraph - Microsoft Graph
-
+https://twitter.com/W365community - Windows 365 community
 
 ## Podcasts
 
@@ -163,3 +187,7 @@ https://uncoveringhiddenrisks.libsyn.com/ - Uncovering hidden risk
 https://securityunlockedpodcast.com/ - Security unlocked
 https://podcast.allabout365.com/ - All about 365 with Jay and Steve
 https://www.office365distilled.com/ - Office 365 distilled
+
+## Blogs
+
+Security, Compliance, and Identity - https://techcommunity.microsoft.com/t5/security-compliance-and-identity/bg-p/MicrosoftSecurityandCompliance
