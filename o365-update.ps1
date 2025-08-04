@@ -376,6 +376,7 @@ $Script:SkipCleanupPrompts = $false
 # Configuration variables
 $Script:MaxParallelOperations = 4
 $Script:TimeoutMinutes = 30
+$Script:JobsSupported = $false  # Force direct execution for better error handling
 
 function Write-ColorOutput {
     [CmdletBinding()]
@@ -857,38 +858,38 @@ function Get-ModuleSpecificParams {
         [Parameter()]
         [ValidateSet('Install', 'Update')]
         [string]$Operation = 'Install'
-    )    # Modules that don't support -AllowClobber
+    )
+    
+    # Modules that don't support -AllowClobber
     $noAllowClobberModules = @(
-        'ExchangeOnlineManagement',
-        'Microsoft.Graph',
-        'Microsoft.Graph.Authentication',
-        'Az',
         'Microsoft.WinGet.Client',
-        'MicrosoftTeams',
-        'PnP.PowerShell',
-        'Microsoft.Online.SharePoint.PowerShell'
+        'Az'
+        # REMOVED: Microsoft.Graph and Microsoft.Graph.Authentication
+        # These modules NEED AllowClobber to resolve command conflicts
     )
     
     # Modules that don't support -AcceptLicense
     $noAcceptLicenseModules = @(
+        'Microsoft.PowerApps.Administration.PowerShell',
+        'Microsoft.PowerApps.PowerShell',
         'Microsoft.WinGet.Client',
-        'Microsoft.Graph',
-        'Microsoft.Graph.Authentication',
         'MicrosoftTeams',
         'PnP.PowerShell',
         'Microsoft.Online.SharePoint.PowerShell'
+        # REMOVED: Microsoft.Graph - it supports AcceptLicense
     )
     
     # Modules that don't support -SkipPublisherCheck
     $noSkipPublisherCheckModules = @(
+        'Microsoft.PowerApps.Administration.PowerShell',
+        'Microsoft.PowerApps.PowerShell',
         'Microsoft.WinGet.Client',
         'ExchangeOnlineManagement',
-        'Microsoft.Graph',
-        'Microsoft.Graph.Authentication',
         'Az',
         'MicrosoftTeams',
         'PnP.PowerShell',
         'Microsoft.Online.SharePoint.PowerShell'
+        # REMOVED: Microsoft.Graph - it supports SkipPublisherCheck
     )
     
     # Note: Microsoft.PowerApps modules were removed from the exclusion lists above
@@ -1398,6 +1399,45 @@ function Install-ModuleWithProgress {
             if ($progressFile -and (Test-Path $progressFile)) {
                 "Error: $($_.Exception.Message) at $(Get-Date -Format 'HH:mm:ss')" | Out-File $progressFile -Append
             }
+            
+            # Enhanced error handling for AllowClobber conflicts in background jobs
+            $errorMessage = $_.Exception.Message
+            if ($errorMessage -like "*already available*" -or 
+                $errorMessage -like "*AllowClobber*" -or 
+                $errorMessage -like "*may override the existing commands*") {
+                
+                if ($progressFile -and (Test-Path $progressFile)) {
+                    "Retry: Command conflict detected - retrying with AllowClobber at $(Get-Date -Format 'HH:mm:ss')" | Out-File $progressFile -Append
+                }
+                
+                # Force AllowClobber for conflict resolution
+                try {
+                    if ($Operation -eq 'Install') {
+                        $retryParams = $InstallParams.Clone()
+                        $retryParams.AllowClobber = $true
+                        Install-Module -Name $ModuleName @retryParams
+                        
+                        if ($progressFile -and (Test-Path $progressFile)) {
+                            "Retry: Success with AllowClobber at $(Get-Date -Format 'HH:mm:ss')" | Out-File $progressFile -Append
+                        }
+                        
+                        return @{ Success = $true; Message = "$Operation completed successfully after retry" }
+                    } else {
+                        # Update-Module doesn't support AllowClobber
+                        if ($progressFile -and (Test-Path $progressFile)) {
+                            "Retry: Update-Module doesn't support AllowClobber - cannot retry" | Out-File $progressFile -Append
+                        }
+                        return @{ Success = $false; Message = "Update-Module conflict cannot be resolved - try uninstalling and reinstalling" }
+                    }
+                }
+                catch {
+                    if ($progressFile -and (Test-Path $progressFile)) {
+                        "Retry: Failed with error: $($_.Exception.Message)" | Out-File $progressFile -Append
+                    }
+                    return @{ Success = $false; Message = $_.Exception.Message }
+                }
+            }
+            
             return @{ Success = $false; Message = $_.Exception.Message }
         }
         finally {
@@ -1506,9 +1546,64 @@ function Install-ModuleWithProgress {
         }
         catch {
             $actualTime = ((Get-Date) - $startTime).TotalSeconds
-            Write-ColorOutput "    Error during $Operation of $ModuleName`: $($_.Exception.Message)" -Type Error
-            Write-ColorOutput ("    Time elapsed: {0:N1} minutes" -f ($actualTime / 60)) -Type Info
-            return $false
+            $errorMessage = $_.Exception.Message
+            
+            # Enhanced error handling for AllowClobber conflicts
+            if ($errorMessage -like "*already available*" -or 
+                $errorMessage -like "*AllowClobber*" -or 
+                $errorMessage -like "*may override the existing commands*") {
+                Write-ColorOutput "    ⚠️ Command conflict detected for $ModuleName" -Type Warning
+                Write-ColorOutput "    💡 Retrying with enhanced conflict resolution..." -Type Info
+                
+                # Force AllowClobber for conflict resolution
+                try {
+                    Write-ColorOutput "    🔄 Retry attempt with -AllowClobber..." -Type Process
+                    
+                    if ($Operation -eq 'Install') {
+                        $retryArgs = @{
+                            Name = $ModuleName
+                            Force = if ($InstallParams.ContainsKey('Force')) { $InstallParams.Force } else { $true }
+                            Confirm = if ($InstallParams.ContainsKey('Confirm')) { $InstallParams.Confirm } else { $false }
+                            AllowClobber = $true
+                            ErrorAction = 'Stop'
+                        }
+                        if ($InstallParams.ContainsKey('Scope')) { $retryArgs.Scope = $InstallParams.Scope }
+                        if ($InstallParams.ContainsKey('AcceptLicense')) { $retryArgs.AcceptLicense = $InstallParams.AcceptLicense }
+                        if ($InstallParams.ContainsKey('SkipPublisherCheck')) { $retryArgs.SkipPublisherCheck = $InstallParams.SkipPublisherCheck }
+                        
+                        Install-Module @retryArgs
+                        
+                        # Perform automatic cleanup if successful
+                        if (-not $SkipVersionCleanup) {
+                            Write-Verbose "Starting automatic cleanup of old versions for $ModuleName"
+                            $cleanupResult = Remove-OldModuleVersions -ModuleName $ModuleName -KeepLatestOnly
+                            
+                            if ($cleanupResult.Success -and $cleanupResult.RemovedCount -gt 0) {
+                                Write-ColorOutput "    🧹 Automatically cleaned up $($cleanupResult.RemovedCount) old version(s)" -Type Process
+                            }
+                        }
+                        
+                        Write-ColorOutput "    ✅ Successfully resolved conflict and installed $ModuleName" -Type Process
+                        Write-ColorOutput ("    Retry time: {0:N1} minutes" -f ($actualTime / 60)) -Type Info
+                        return $true
+                    } else {
+                        # Update-Module doesn't support AllowClobber
+                        Write-ColorOutput "    ❌ Cannot retry Update-Module with AllowClobber (not supported)" -Type Error
+                        Write-ColorOutput "    💡 Try uninstalling and reinstalling the module instead" -Type Info
+                        return $false
+                    }
+                }
+                catch {
+                    Write-ColorOutput "    ❌ Retry failed: $($_.Exception.Message)" -Type Error
+                    Write-ColorOutput ("    Total time elapsed: {0:N1} minutes" -f ($actualTime / 60)) -Type Info
+                    return $false
+                }
+            } else {
+                # Original error handling for non-AllowClobber errors
+                Write-ColorOutput "    Error during $Operation of $ModuleName`: $errorMessage" -Type Error
+                Write-ColorOutput ("    Time elapsed: {0:N1} minutes" -f ($actualTime / 60)) -Type Info
+                return $false
+            }
         }
     }
     
@@ -1583,9 +1678,54 @@ function Install-ModuleWithProgress {
         }
         catch {
             $actualTime = ((Get-Date) - $startTime).TotalSeconds
-            Write-ColorOutput "    Error during $Operation of $ModuleName`: $($_.Exception.Message)" -Type Error
-            Write-ColorOutput ("    Time elapsed: {0:N0} seconds" -f $actualTime) -Type Info
-            return $false
+            $errorMessage = $_.Exception.Message
+            
+            # Enhanced error handling for AllowClobber conflicts
+            if ($errorMessage -like "*already available*" -and $errorMessage -like "*AllowClobber*") {
+                Write-ColorOutput "    ⚠️ Command conflict detected for $ModuleName" -Type Warning
+                Write-ColorOutput "    💡 Retrying installation with enhanced conflict resolution..." -Type Info
+                
+                # Force AllowClobber for conflict resolution
+                $retryParams = $InstallParams.Clone()
+                $retryParams.AllowClobber = $true
+                
+                try {
+                    Write-ColorOutput "    🔄 Retry attempt with -AllowClobber..." -Type Process
+                    
+                    if ($Operation -eq 'Install') {
+                        $retryArgs = @{
+                            Name = $ModuleName
+                            Force = if ($retryParams.ContainsKey('Force')) { $retryParams.Force } else { $true }
+                            Confirm = if ($retryParams.ContainsKey('Confirm')) { $retryParams.Confirm } else { $false }
+                            AllowClobber = $true
+                            ErrorAction = 'Stop'
+                        }
+                        if ($retryParams.ContainsKey('Scope')) { $retryArgs.Scope = $retryParams.Scope }
+                        if ($retryParams.ContainsKey('AcceptLicense')) { $retryArgs.AcceptLicense = $retryParams.AcceptLicense }
+                        if ($retryParams.ContainsKey('SkipPublisherCheck')) { $retryArgs.SkipPublisherCheck = $retryParams.SkipPublisherCheck }
+                        
+                        Install-Module @retryArgs
+                    } else {
+                        # Update-Module doesn't support AllowClobber, so we can't retry
+                        Write-ColorOutput "    ❌ Cannot retry Update-Module with AllowClobber (not supported)" -Type Error
+                        throw
+                    }
+                    
+                    Write-ColorOutput "    ✅ Successfully resolved conflict and installed $ModuleName" -Type Process
+                    Write-ColorOutput ("    Retry time: {0:N0} seconds" -f $actualTime) -Type Info
+                    return $true
+                }
+                catch {
+                    Write-ColorOutput "    ❌ Retry failed: $($_.Exception.Message)" -Type Error
+                    Write-ColorOutput ("    Total time elapsed: {0:N0} seconds" -f $actualTime) -Type Info
+                    return $false
+                }
+            } else {
+                # Original error handling for non-AllowClobber errors
+                Write-ColorOutput "    Error during $Operation of $ModuleName`: $errorMessage" -Type Error
+                Write-ColorOutput ("    Time elapsed: {0:N0} seconds" -f $actualTime) -Type Info
+                return $false
+            }
         }
     }
     
